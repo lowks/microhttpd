@@ -10,8 +10,9 @@ setup(name='microhttpd',
       author='Rob Tandy',
       author_email='rob.tandy@gmail.com',
       url='https://github.com/robtandy/microhttpd',
+      description="A small, fast HTTP server based around asyncio",
       long_description="""
       A simple, small and fast web server based around asyncio.
       """,
       py_modules=['microhttpd'],
-)
+      )

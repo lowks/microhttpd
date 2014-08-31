@@ -14,10 +14,12 @@ from asyncio import coroutine, Task, start_server
 
 log = logging.getLogger('microhttpd')
 
+
 class HTTPException(Exception):
     def __init__(self, status_code, msg):
         self.status_code = status_code
         self.message = msg
+
 
 class Request(object):
     TOTAL_TIME = 0
@@ -33,7 +35,7 @@ class Request(object):
         self.start_time = time.time()
         self.body_consumed = False
 
-    @coroutine   
+    @coroutine
     def _nextline(self):
         return (yield from self.reader.readline()).decode('latin-1').rstrip()
 
@@ -68,11 +70,9 @@ class Request(object):
                 self.keep_alive = True
                 if self.headers.get('connection') == 'close':
                     self.keep_alive = False
-            
+
             if self.keep_alive:
                 log.debug('%s KEEP ALIVE REQUEST', self.http_version)
-
-
 
     @coroutine
     def body(self):
@@ -85,15 +85,15 @@ class Request(object):
         b = yield from self.reader.readexactly(l)
         self.body_consumed = True
         return b
-    
+
     def end(self):
         dur = time.time() - self.start_time
         Request.TOTAL_REQ += 1
         Request.TOTAL_TIME += dur
-        log.info('%s %s %s %sms', self.status_code, self.method, 
-                self.full_path, round(dur*1000, 2))
+        log.info('%s %s %s %sms', self.status_code, self.method,
+                 self.full_path, round(dur*1000, 2))
         log.debug('avg req time %0.6f for %d requests',
-            Request.TOTAL_TIME / Request.TOTAL_REQ, Request.TOTAL_REQ)
+                  Request.TOTAL_TIME / Request.TOTAL_REQ, Request.TOTAL_REQ)
 
 
 class Response(object):
@@ -106,7 +106,7 @@ class Response(object):
         self.is_head_request = False
         self.headers_sent = False
         self.status_code = -1
-    
+
     @coroutine
     def send_headers(self, length=0, status=200, headers={}):
         log.debug('in send headers')
@@ -119,7 +119,7 @@ class Response(object):
         log.debug('headers written')
         self.headers_sent = True
         self.request.status_code = status
-    
+
     @coroutine
     def send(self, d):
         self.write(d)
@@ -132,13 +132,13 @@ class Response(object):
         if isinstance(d, str):
             d = d.encode('utf-8')
         self.writer.write(d)
-       
+
     @coroutine
     def close(self):
         yield from self.writer.drain()
         log.debug('drained')
         self.request.end()
-        
+
         # we've completed this request
         self.is_sent = True
 
@@ -148,6 +148,7 @@ class Response(object):
         else:
             log.debug('ready for next connection')
             yield from self.server.recycle(self.request, self)
+
 
 class HTTPServer(object):
     def __init__(self, application):
@@ -177,7 +178,7 @@ class HTTPServer(object):
             def f(req, res):
                 res.is_head_request = is_head
                 kwargs = cb_kwargs
-                
+
                 # figure out whether cb wants request and response objects
                 cb_args = inspect.getargspec(cb).args
                 log.debug('cb args=%s', cb_args)
@@ -202,32 +203,33 @@ class HTTPServer(object):
                         log.debug('sending reply of length %d', len(r))
                         yield from res.send_headers(length=len(r))
                         yield from res.send(r)
-                
+
                 except HTTPException as e:
-                    yield from self.send_error(res,e.status_code,msg=e.message)
+                    yield from self.send_error(res, e.status_code,
+                                               msg=e.message)
                 except ConnectionResetError as e:
                     log.debug('connection reset by peer')
                 except Exception as e:
                     yield from self.send_error(res, 500, exception=e)
 
-            # callback is all wrapped up and ready to be scheduled!    
+            # callback is all wrapped up and ready to be scheduled!
             return f
 
         cb = None
 
         for pattern, method, callback, kwargs in self.app.routes:
             m = pattern.match(path)
-            if not m: continue
-
+            if not m:
+                continue
             cb_kwargs = m.groupdict()
             cb_kwargs.update(kwargs)
-            
+
             if meth.lower() == method.lower():
                 cb = cb_wrapper(callback, cb_kwargs)
             elif meth.lower() == 'head':
                 cb = cb_wrapper(callback, cb_kwargs, is_head=True)
             if cb:
-                break # we matched one
+                break  # we matched one
         return cb
 
     @coroutine
@@ -252,7 +254,7 @@ class HTTPServer(object):
     def recycle(self, request, response):
         # ok, recycle this reader and writer for a new connection
         # used for keep alive requests
-        
+
         # first make sure we consumed the body
         log.debug('recycling')
         if not request.body_consumed:
@@ -261,14 +263,14 @@ class HTTPServer(object):
             log.debug('done')
 
         Task(self.handle(request.reader, response.writer, True))
-    
+
     @coroutine
     def send_error(self, response, status=500, msg='', exception=None):
         log.debug('sending %s', status)
-        yield from response.send_headers(status=status,length=len(msg))
+        yield from response.send_headers(status=status, length=len(msg))
         yield from response.send(msg)
-        if exception: log.exception(exception)
-
+        if exception:
+            log.exception(exception)
 
     def client_connected(self, client_reader, client_writer):
         # a new client connected, our reader _ReaderWrapper, will let
@@ -278,14 +280,16 @@ class HTTPServer(object):
 
         Task(self.handle(client_reader, client_writer))
 
+
 class Application(object):
     def __init__(self, routes):
         self.routes = []
         for route in routes:
-            pattern, meth, cb  = route[:3]
-            if len(route) == 4: kwargs = route[3]
-            else: kwargs = {}
-
+            pattern, meth, cb = route[:3]
+            if len(route) == 4:
+                kwargs = route[3]
+            else:
+                kwargs = {}
             self.routes.append((re.compile(pattern), meth, cb, kwargs))
 
     @classmethod
@@ -299,7 +303,7 @@ class Application(object):
         L = os.stat(f).st_size
         yield from response.send_headers(length=L)
         log.debug('serving %s size %d', f, L)
-        
+
         with open(f, 'rb') as the_file:
             while True:
                 data = the_file.read(chunk_size)
@@ -310,5 +314,3 @@ class Application(object):
 
     def serve(self, host, port, **kwargs):
         HTTPServer(self).serve(host, port, **kwargs)
-
-

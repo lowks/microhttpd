@@ -4,15 +4,18 @@ import sys
 from asyncio import coroutine, sleep
 import argparse
 
+
 # simplest handler taking no arguments
 def hi():
     return 'hi'
+
 
 @coroutine
 def hi3(response):
     yield from response.send_headers(length=3)
     response.write('hi3')
     yield from response.close()
+
 
 # coroutine that sleeps
 @coroutine
@@ -32,6 +35,7 @@ def echo(request, response):
     yield from response.send_headers(length=len(body))
     response.send(body)
 
+
 # coroutine handler receiving arguments from re patterns in the route path
 @coroutine
 def groups(g1, g2):
@@ -39,7 +43,7 @@ def groups(g1, g2):
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.ERROR,
-                format='%(asctime)s | %(levelname)s | %(message)s')
+                        format='%(asctime)s | %(levelname)s | %(message)s')
 
     p = argparse.ArgumentParser()
     p.add_argument('-l', '--log-level', default='ERROR')
@@ -53,10 +57,9 @@ if __name__ == '__main__':
         (r'^/slow/(?P<t>.*)', 'GET', slow),
         (r'^/groups/(?P<g1>.*)/(?P<g2>.*)$', 'GET', groups),
         (r'^/site/(?P<path>.*)$', 'GET', Application.static,
-           {'doc_root':'/tmp/site'}),
+         {'doc_root': '/tmp/site'}),
         (r'^/hi3', 'GET', hi3),
         (r'^/.*$', 'GET', hi),
-        ])
+    ])
 
     a.serve('0.0.0.0', 2020, keep_alive=True)
-
